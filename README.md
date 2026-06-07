@@ -35,6 +35,22 @@ No global gradient, no weight transport — every term a synapse needs is availa
 
 This isn't a backprop replacement for training frontier models today; it's the reference paradigm for a different bet: **energy-efficient, local, on-device learning**. The relevance is growing on three fronts — neuromorphic and analog hardware (learning that runs *in physics* rather than on a GPU), edge devices that must adapt without a datacenter, and the scientific question of how biological learning works. For a research portfolio it's also a concrete demonstration of fluency with the *foundations* of learning algorithms, not just the application of `loss.backward()`.
 
+## Methods (as implemented)
+
+The implementation follows Scellier & Bengio (2017) exactly. State units `s` carry a hard-sigmoid activation `ρ(s) = clamp(s, 0, 1)`. The network energy is the Hopfield-style functional
+
+```
+E(s) = ½ Σᵢ ρ(sᵢ)²  −  ½ Σᵢⱼ Wᵢⱼ ρ(sᵢ) ρ(sⱼ)  −  Σᵢ bᵢ ρ(sᵢ)
+```
+
+and, given a target `y`, a quadratic output cost `C = Σ (s_out − y)²` defines the total energy `F = E + β·C`.
+
+- **Free phase** (`free_phase`, 20 iterations, step `ε = 0.5`): with the input clamped, units relax along `s ← ρ(s − ε ∂E/∂s)` to a free equilibrium `s⁰`.
+- **Weakly-clamped phase** (`weakly_clamped_phase`, 4 iterations, `β = 0.5`): the same relaxation on `F`, so the output is nudged toward `y`, giving `sᵝ`.
+- **Update**: parameters follow the contrastive gradient `(E(sᵝ) − E(s⁰)) / β`, which reduces to the local rule `ΔWᵢⱼ ∝ (1/β)(ρ(sᵢᵝ)ρ(sⱼᵝ) − ρ(sᵢ⁰)ρ(sⱼ⁰))`.
+
+**Honest implementation note (interview-relevant):** `torch.autograd.grad` is used to evaluate the *energy* gradients `∂E/∂s` and `∂(ΔE)/∂W`. It is **not** used to backpropagate a task loss through time — the weight update is the EP contrastive rule computed from two equilibria, and every term it needs is local to a synapse. autograd here is a convenience for differentiating the energy; on neuromorphic/analog hardware that step is what physical relaxation computes for free.
+
 ## What's here (technical breakdown)
 
 This is the **largest part of the repo** — a from-scratch EP system, not a wrapper:
@@ -71,6 +87,27 @@ Or open `Equilibrium_Propagation_Colab.ipynb` in Colab for a no-install tour.
 - Scellier, B. & Bengio, Y. (2017). *Equilibrium Propagation: bridging the gap between energy-based models and backpropagation.* Front. Comput. Neurosci. 11:24.
 - Lillicrap, T. et al. (2020). *Backpropagation and the brain.* Nature Reviews Neuroscience 21, 335–346.
 - Kendall, J. et al. (2020). *Training end-to-end analog neural networks with equilibrium propagation.* arXiv:2006.01981.
+
+## How to cite
+
+```bibtex
+@misc{bano_ep_tutorial,
+  author       = {Bano, Azra},
+  title        = {Equilibrium Propagation: a working PyTorch tutorial},
+  year         = {2026},
+  howpublished = {\url{https://github.com/azrabano23/equilibrium-propagation-tutorial}}
+}
+
+@article{scellier2017equilibrium,
+  author  = {Scellier, Benjamin and Bengio, Yoshua},
+  title   = {Equilibrium Propagation: Bridging the Gap between Energy-Based Models and Backpropagation},
+  journal = {Frontiers in Computational Neuroscience},
+  volume  = {11},
+  pages   = {24},
+  year    = {2017},
+  doi     = {10.3389/fncom.2017.00024}
+}
+```
 
 ## License
 
