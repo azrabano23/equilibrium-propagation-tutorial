@@ -112,4 +112,3 @@ Or open `Equilibrium_Propagation_Colab.ipynb` in Colab for a no-install tour.
 ## License
 
 MIT — see [LICENSE](LICENSE). Author: **Azra Bano**.
-
